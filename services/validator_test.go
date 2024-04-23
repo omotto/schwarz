@@ -3,12 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"schwarz/models"
 	"testing"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/util/rand"
-
-	"schwarz/models"
 )
 
 // GIVEN CreateValidator

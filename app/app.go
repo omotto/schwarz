@@ -8,15 +8,16 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"schwarz/api/servers"
+	"schwarz/services"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	pb "schwarz/api/proto"
-	"schwarz/api/servers"
-	"schwarz/services"
 )
 
 func Start() {
@@ -37,6 +38,13 @@ func Start() {
 	// Validator Service Init
 	validatorService := services.NewValidator(postgresService)
 
+	// Server Context
+	sCtx := serverContext(context.Background())
+
+	// HTTP Server Init
+	httpServer := servers.NewHealthcheck("", 8080, time.Second*45)
+	httpServer.Run()
+
 	// GRPC Server Init
 	port := 5000
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
@@ -46,7 +54,8 @@ func Start() {
 	log.Println("starting grpc server")
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	pb.RegisterPostgresServiceServer(grpcServer, servers.NewPostgres(validatorService))
-	sCtx := serverContext(context.Background())
+
+	// GRPC Run
 	go func() {
 		log.Printf("gRPC server listening at %v", listener.Addr())
 		if err = grpcServer.Serve(listener); err != nil {
@@ -55,6 +64,10 @@ func Start() {
 	}()
 	<-sCtx.Done()
 	grpcServer.GracefulStop()
+	err = httpServer.ShutDown()
+	if err != nil {
+		log.Println("error: ", err)
+	}
 	log.Println("clean shutdown")
 }
 

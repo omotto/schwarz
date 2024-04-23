@@ -34,7 +34,7 @@ func (s *PostgresServer) CreatePostgres(ctx context.Context, req *pb.CreatePostg
 func (s *PostgresServer) UpdatePostgres(ctx context.Context, req *pb.UpdatePostgresRequest) (*pb.UpdatePostgresResponse, error) {
 	err := s.postgresService.Update(ctx, models.UpdateRequest{
 		ID:       req.GetId(),
-		Replicas: 4,
+		Replicas: req.GetReplicas(),
 	})
 	return &pb.UpdatePostgresResponse{}, err
 }
