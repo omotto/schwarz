@@ -1,19 +1,22 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
-	"schwarz/api/servers"
-	"schwarz/services"
+	"syscall"
 
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	pb "schwarz/api/proto"
+	"schwarz/api/servers"
+	"schwarz/services"
 )
 
 func Start() {
@@ -40,9 +43,29 @@ func Start() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+	log.Println("starting grpc server")
+	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	pb.RegisterPostgresServiceServer(grpcServer, servers.NewPostgres(validatorService))
-	if err = grpcServer.Serve(listener); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	sCtx := serverContext(context.Background())
+	go func() {
+		log.Printf("gRPC server listening at %v", listener.Addr())
+		if err = grpcServer.Serve(listener); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+	<-sCtx.Done()
+	grpcServer.GracefulStop()
+	log.Println("clean shutdown")
+}
+
+func serverContext(ctx context.Context) context.Context {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		s := <-c
+		log.Printf("got signal %v, attempting graceful shutdown", s)
+		cancel()
+	}()
+	return ctx
 }
