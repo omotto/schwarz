@@ -1,0 +1,6 @@
+# Ignores the whole .idea folder and all .iml files
+.idea/
+
+# Project specific
+.go-mod-download.sentinel
+api/proto/*.pb.go

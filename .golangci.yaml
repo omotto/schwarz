@@ -1,0 +1,104 @@
+# This file contains all available configuration options
+# with their default values.
+
+# options for analysis running
+run:
+  # default concurrency is a available CPU number
+  concurrency: 4
+
+  modules-download-mode: readonly
+
+  max-same-issues: 0
+
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 5m
+linters-settings:
+  depguard:
+    rules:
+      Test:
+        files:
+          - $test
+        deny:
+          - pkg: github.com/stretchr/testify
+            desc: Please use standard library for tests
+  misspell:
+    # Correct spellings using locale preferences for US or UK.
+    # Default is to use a neutral variety of English.
+    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+    locale: US
+  golint:
+    min-confidence: 0.8
+  goimports:
+    local-prefixes: dev.azure.com/schwarzit/schwarzit.odj.ek-stammdaten-avf
+  gosec:
+    excludes:
+      # Suppressions: (see https://github.com/securego/gosec#available-rules for details)
+      - G104 # "Audit errors not checked" -> which we don't need and is a badly implemented version of errcheck
+      - G102 # "Bind to all interfaces" -> since this is normal in k8s
+      - G304 # "File path provided as taint input" -> too many false positives
+  nakedret:
+    max-func-lines: 0
+  revive:
+    ignore-generated-header: true
+    severity: error
+    # https://github.com/mgechev/revive
+    rules:
+      - name: errorf
+      - name: context-as-argument
+      - name: error-return
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: atomic
+      - name: empty-lines
+      - name: early-return
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - experimental
+    disabled-checks:
+      - wrapperFunc
+      - typeDefFirst
+      - ifElseChain
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+  stylecheck:
+    checks: ["all", "-ST1000", "-ST1021", "-ST1022"]
+    # Below is the list of initialisms that we are interested in keeping track on our code base.
+    # Everytime a new initialism is used in our code it should also be added to this list, so we can enforce a
+    # consistent use throughout our code base.
+    initialisms: ["ID", "UUID", "HTML", "gRPC", "DB", "URL"]
+linters:
+  enable:
+    # https://golangci-lint.run/usage/linters/
+    # default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    # additional linters
+    - bodyclose
+    - errorlint
+    - exportloopref
+    - forcetypeassert
+    - gochecknoinits
+    - gocritic
+    - gofmt
+    - goimports
+    - gosec
+    - misspell
+    - nakedret
+    - noctx
+    - revive
+    - sqlclosecheck
+    - unparam
+    - wastedassign
+    - depguard
+    - stylecheck
+issues:
+  exclude-use-default: false

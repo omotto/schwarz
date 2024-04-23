@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "https://github.com/omotto/schwarz/api/proto;postgres";
+
+service PostgresService {
+  // Create Postgres Kubernetes Resource.
+  rpc CreatePostgres(CreatePostgresRequest) returns (CreatePostgresResponse);
+  // Update an existing Postgres Kubernetes Resource.
+  rpc UpdatePostgres(UpdatePostgresRequest) returns (UpdatePostgresResponse);
+  // Delete an existing Postgres Kubernetes Resource.
+  rpc DeletePostgres(DeletePostgresRequest) returns (DeletePostgresResponse);
+}
+
+message CreatePostgresRequest {
+  string db_name = 1;
+  string user_name = 2;
+  string user_pass = 3;
+  int32 port_num = 4;
+  int32 replicas = 5;
+  string capacity = 6;
+  string access_mode = 7;
+}
+
+message CreatePostgresResponse {
+  string id = 1;
+}
+
+message UpdatePostgresRequest {
+  string id = 1;
+  int32 replicas = 2;
+}
+
+message UpdatePostgresResponse {}
+
+message DeletePostgresRequest {
+  string id = 1;
+}
+
+message DeletePostgresResponse {}
