@@ -2,9 +2,11 @@ ROOT_DIR              ?= $(shell git rev-parse --show-toplevel)
 GO                    ?= go
 GO_FLAGS              ?=
 GO_BIN                ?= ./bin/main
+GOTEST_ARGS           ?= -timeout=5m -cover
 GOLANG_CI_ARGS        ?= --allow-parallel-runners --timeout=5m
 BUF                   ?= buf
 mainpath              ?= main
+pkgs                  ?= $(shell $(GO) list ./...)
 
 ALL_PROTOS ?= $(shell find $(ROOT_DIR) \
 	-type f -path $(ROOT_DIR)/templates -prune \
@@ -34,9 +36,13 @@ else
 	$(GO) build $(GO_FLAGS) ./...
 endif
 
-all: lint build
+all: lint test build
 
 build: compile
+
+test: go-dependencies
+	@echo ">> running tests"
+	$(GO) test $(GOTEST_ARGS) $(pkgs)
 
 go-mod-download: $(ROOT_DIR)/.go-mod-download.sentinel
 

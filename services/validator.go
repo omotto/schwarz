@@ -49,7 +49,7 @@ func (v *Validator) Create(ctx context.Context, request models.CreateRequest) (m
 	if len(request.UserName) < minUserNameLength || len(request.UserName) > maxUserNameLength {
 		return models.CreateResponse{}, fmt.Errorf(invalidUserNameLengthError, len(request.UserName))
 	}
-	if len(request.UserPass) < minUserPassLength || len(request.DBName) > maxUserPassLength {
+	if len(request.UserPass) < minUserPassLength || len(request.UserPass) > maxUserPassLength {
 		return models.CreateResponse{}, fmt.Errorf(invalidUserPassLengthError, len(request.UserPass))
 	}
 	if request.PortNum < minPortNum || request.PortNum > maxPortNum {
