@@ -4,7 +4,7 @@ GO_FLAGS              ?=
 GO_BIN                ?= ./bin/main
 GOLANG_CI_ARGS        ?= --allow-parallel-runners --timeout=5m
 BUF                   ?= buf
-mainpath              ?=
+mainpath              ?= main
 
 ALL_PROTOS ?= $(shell find $(ROOT_DIR) \
 	-type f -path $(ROOT_DIR)/templates -prune \
