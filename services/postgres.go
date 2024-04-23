@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"schwarz/models"
 
 	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
@@ -10,8 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
-
-	"schwarz/models"
 )
 
 const (
@@ -25,14 +24,13 @@ type Postgres struct {
 	kubeClient *kubernetes.Clientset
 }
 
-func New(clientset *kubernetes.Clientset) Service {
+func NewPostgres(clientset *kubernetes.Clientset) Service {
 	return &Postgres{
 		kubeClient: clientset,
 	}
 }
 
 func (s *Postgres) Create(ctx context.Context, request models.CreateRequest) (models.CreateResponse, error) {
-	// validate capacity and access modes formats
 	id := uuid.New().String()
 	configMap := setConfigMap(request.DBName, request.UserName, request.UserPass, id)
 	persistentVolume := setPersistentVolume(request.Capacity, []string{request.AccessMode}, id)
@@ -45,33 +43,31 @@ func (s *Postgres) Create(ctx context.Context, request models.CreateRequest) (mo
 		return models.CreateResponse{}, err
 	} else if _, err := s.kubeClient.CoreV1().PersistentVolumeClaims(apiv1.NamespaceDefault).Create(ctx, persistentVolumeClaim, metav1.CreateOptions{}); err != nil {
 		return models.CreateResponse{}, err
-	} else if deployStatus, err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+	} else if _, err = s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		return models.CreateResponse{}, err
 	} else if _, err := s.kubeClient.CoreV1().Services(apiv1.NamespaceDefault).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		return models.CreateResponse{}, err
-	} else {
-		id = deployStatus.GetObjectMeta().GetName()
 	}
-	return models.CreateResponse{Id: id}, nil
+	return models.CreateResponse{ID: id}, nil
 }
 
 func (s *Postgres) Delete(ctx context.Context, request models.DeleteRequest) error {
 	deletePolicy := metav1.DeletePropagationForeground
-	if err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Delete(ctx, request.Id, metav1.DeleteOptions{
+	if err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Delete(ctx, request.ID, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		return err
 	}
-	if err := s.kubeClient.CoreV1().Services(apiv1.NamespaceDefault).Delete(ctx, postgresPrefix+request.Id, metav1.DeleteOptions{}); err != nil {
+	if err := s.kubeClient.CoreV1().Services(apiv1.NamespaceDefault).Delete(ctx, postgresPrefix+request.ID, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
-	if err := s.kubeClient.CoreV1().PersistentVolumeClaims(apiv1.NamespaceDefault).Delete(ctx, postgresVolumeClaimPrefix+request.Id, metav1.DeleteOptions{}); err != nil {
+	if err := s.kubeClient.CoreV1().PersistentVolumeClaims(apiv1.NamespaceDefault).Delete(ctx, postgresVolumeClaimPrefix+request.ID, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
-	if err := s.kubeClient.CoreV1().PersistentVolumes().Delete(ctx, postgresVolumePrefix+request.Id, metav1.DeleteOptions{}); err != nil {
+	if err := s.kubeClient.CoreV1().PersistentVolumes().Delete(ctx, postgresVolumePrefix+request.ID, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
-	if err := s.kubeClient.CoreV1().ConfigMaps(apiv1.NamespaceDefault).Delete(ctx, postgresSecretPrefix+request.Id, metav1.DeleteOptions{}); err != nil {
+	if err := s.kubeClient.CoreV1().ConfigMaps(apiv1.NamespaceDefault).Delete(ctx, postgresSecretPrefix+request.ID, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -81,13 +77,13 @@ func (s *Postgres) Update(ctx context.Context, request models.UpdateRequest) err
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		if result, err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Get(ctx, request.Id, metav1.GetOptions{}); err != nil {
-			return err
-		} else {
-			result.Spec.Replicas = &request.Replicas
-			_, err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Update(ctx, result, metav1.UpdateOptions{})
+		result, err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Get(ctx, request.ID, metav1.GetOptions{})
+		if err != nil {
 			return err
 		}
+		result.Spec.Replicas = &request.Replicas
+		_, err = s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Update(ctx, result, metav1.UpdateOptions{})
+		return err
 	})
 }
 
@@ -114,7 +110,7 @@ func setConfigMap(dbName, user, pass, id string) *apiv1.ConfigMap {
 }
 
 func setPersistentVolume(storage string, accessModes []string, id string) *apiv1.PersistentVolume {
-	persistentVolumeAccessModes := make([]apiv1.PersistentVolumeAccessMode, len(accessModes), len(accessModes))
+	persistentVolumeAccessModes := make([]apiv1.PersistentVolumeAccessMode, len(accessModes))
 	for idx, accessMode := range accessModes {
 		persistentVolumeAccessModes[idx] = apiv1.PersistentVolumeAccessMode(accessMode)
 	}
@@ -146,7 +142,7 @@ func setPersistentVolume(storage string, accessModes []string, id string) *apiv1
 }
 
 func setPersistentVolumeClaim(storage string, accessModes []string, id string) *apiv1.PersistentVolumeClaim {
-	persistentVolumeClaimAccessModes := make([]apiv1.PersistentVolumeAccessMode, len(accessModes), len(accessModes))
+	persistentVolumeClaimAccessModes := make([]apiv1.PersistentVolumeAccessMode, len(accessModes))
 	for idx, accessMode := range accessModes {
 		persistentVolumeClaimAccessModes[idx] = apiv1.PersistentVolumeAccessMode(accessMode)
 	}
@@ -198,7 +194,7 @@ func setService(port int32, id string) *apiv1.Service {
 	}
 }
 
-func setDeployment(replicas int32, port int32, id string) *appsv1.Deployment {
+func setDeployment(replicas, port int32, id string) *appsv1.Deployment {
 	matchLabels := map[string]string{"app": "postgres"}
 	labels := map[string]string{"app": "postgres"}
 	pullPolicy := "IfNotPresent"

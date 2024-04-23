@@ -13,14 +13,14 @@ type CreateRequest struct {
 }
 
 type CreateResponse struct {
-	Id string
+	ID string
 }
 
 type DeleteRequest struct {
-	Id string
+	ID string
 }
 
 type UpdateRequest struct {
-	Id       string
+	ID       string
 	Replicas int32 // Number of desired pods.
 }

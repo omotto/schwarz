@@ -1,48 +1,48 @@
 package app
 
 import (
-	"context"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"schwarz/api/servers"
+	"schwarz/services"
 
+	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"schwarz/models"
-	"schwarz/services"
+	pb "schwarz/api/proto"
 )
 
 func Start() {
-
+	// Kubernetes Init
 	kubeConfigPath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to load kubeConfig path: %v", err)
 	}
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to load kubeConfig: %v", err)
 	}
-	fmt.Println(kubeClient)
-	service := services.New(kubeClient)
-	resp, err := service.Create(context.Background(), models.CreateRequest{
-		DBName:     "mottoDB",
-		UserName:   "omotto",
-		UserPass:   "123456",
-		PortNum:    5432,
-		Replicas:   2,
-		Capacity:   "10Mi",
-		AccessMode: "ReadWriteMany",
-	})
-	fmt.Println(err)
-	err = service.Update(context.Background(), models.UpdateRequest{
-		Id:       resp.Id,
-		Replicas: 4,
-	})
-	fmt.Println(err)
-	err = service.Delete(context.Background(), models.DeleteRequest{
-		Id: resp.Id,
-	})
-	fmt.Println(err)
+
+	// Postgres Service Init
+	postgresService := services.NewPostgres(kubeClient)
+
+	// Validator Service Init
+	validatorService := services.NewValidator(postgresService)
+
+	// GRPC Server Init
+	port := 5000
+	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterPostgresServiceServer(grpcServer, servers.NewPostgres(validatorService))
+	if err = grpcServer.Serve(listener); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }
