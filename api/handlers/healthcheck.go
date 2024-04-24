@@ -18,6 +18,7 @@ func NewHealthcheck(registry *prometheus.Registry) Healthcheck {
 }
 
 func (h *Healthcheck) ReadinessProbe(writer http.ResponseWriter, _ *http.Request) {
+	// TODO: Check if all external dependencies are ready either
 	writer.WriteHeader(http.StatusOK)
 }
 
