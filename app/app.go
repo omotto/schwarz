@@ -3,24 +3,30 @@ package app
 import (
 	"context"
 	"fmt"
+	grpcRecovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"schwarz/api/middlewares"
 	"schwarz/api/servers"
 	"schwarz/services"
 	"syscall"
-	"time"
-
-	"google.golang.org/grpc"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	pb "schwarz/api/proto"
 )
 
 func Start() {
+	// Get config params
+	cfg, err := NewConfig()
+	if err != nil {
+		log.Fatalf("failed to load config params")
+	}
+
 	// Kubernetes Init
 	kubeConfigPath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
@@ -42,17 +48,32 @@ func Start() {
 	sCtx := serverContext(context.Background())
 
 	// HTTP Server Init
-	httpServer := servers.NewHealthcheck("", 8080, time.Second*45)
+	httpServer := servers.NewHealthcheck("", cfg.HealthPort, cfg.HttpTimeout)
 	httpServer.Run()
 
+	// server-side TLS
+	// TODO: disabled to check with INSOMNIA gRPC client
+	// creds, err := credentials.NewServerTLSFromFile(testdata.Path("server1.pem"), testdata.Path("server1.key"))
+	// if err != nil {
+	//	log.Fatalf("failed to create credentials: %v", err)
+	//}
+
 	// GRPC Server Init
-	port := 5000
-	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%s", cfg.GRPCPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	log.Println("starting grpc server")
-	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
+	grpcServer := grpc.NewServer([]grpc.ServerOption{
+		//grpc.Creds(creds),
+		grpc.ChainUnaryInterceptor(
+			middlewares.AuthInterceptor,
+			grpcRecovery.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			grpcRecovery.StreamServerInterceptor(),
+		),
+	}...)
 	pb.RegisterPostgresServiceServer(grpcServer, servers.NewPostgres(validatorService))
 
 	// GRPC Run

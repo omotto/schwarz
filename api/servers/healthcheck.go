@@ -26,9 +26,9 @@ type HealthcheckServer struct {
 	httpSvr  *http.Server
 }
 
-func NewHealthcheck(host string, port uint, timeout time.Duration) HealthcheckServer {
+func NewHealthcheck(host string, port string, timeout time.Duration) HealthcheckServer {
 	server := HealthcheckServer{
-		httpAddr: fmt.Sprintf("%s:%d", host, port),
+		httpAddr: fmt.Sprintf("%s:%s", host, port),
 		router:   mux.NewRouter(),
 		timeout:  timeout,
 	}
@@ -68,5 +68,6 @@ func livenessProbe(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(http.StatusOK)
 }
 
-func metricsHandler(_ http.ResponseWriter, _ *http.Request) {
+func metricsHandler(writer http.ResponseWriter, request *http.Request) {
+	//promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}).ServeHTTP(writer, request)
 }
