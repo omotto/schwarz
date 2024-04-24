@@ -99,4 +99,4 @@ docker: compile
 	docker build -t ${PRODUCT}:${IMAGE_TAG} .
 	docker run -p 50052:50052 -p 8602:8602 ${PRODUCT}:${IMAGE_TAG}
 
-.PHONY: all generate-rpcs run go-mod-download generate-all-rpcs go-dependencies
+.PHONY: all docker go-mod-download generate-all-rpcs go-dependencies lint fix setup-local

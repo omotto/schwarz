@@ -55,7 +55,7 @@ func TestHealthcheck(t *testing.T) {
 				t.Fatalf("invalid URL: %s", err)
 			}
 
-			req, err := http.Get(uri) //nolint:gosec,noctx
+			req, err := http.Get(uri) //nolint:gosec,noctx // make test simple
 			if err != nil {
 				t.Fatalf("http get: %s", err)
 			}
