@@ -1,13 +1,14 @@
 package servers
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"schwarz/api/handlers"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // GIVEN Healthcheck
@@ -54,7 +55,7 @@ func TestHealthcheck(t *testing.T) {
 				t.Fatalf("invalid URL: %s", err)
 			}
 
-			req, err := http.Get(uri) //nolint:gosec,noctx // keep the test simple
+			req, err := http.Get(uri) //nolint:gosec,noctx
 			if err != nil {
 				t.Fatalf("http get: %s", err)
 			}
