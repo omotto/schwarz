@@ -6,3 +6,4 @@
 .go-mod-download.sentinel
 api/proto/*.pb.go
 bin/
+configs/*

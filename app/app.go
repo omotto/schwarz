@@ -3,10 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	grpcRecovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
-	"google.golang.org/grpc"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net"
 	"os"
@@ -17,6 +13,13 @@ import (
 	"schwarz/services"
 	"syscall"
 
+	grpcLogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpcRecovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+
 	pb "schwarz/api/proto"
 )
 
@@ -24,11 +27,14 @@ func Start() {
 	// Get config params
 	cfg, err := NewConfig()
 	if err != nil {
-		log.Fatalf("failed to load config params")
+		log.Fatalf("failed to load config params %v", err)
 	}
 
 	// Kubernetes Init
-	kubeConfigPath := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	kubeConfigPath, err := filepath.Abs("./configs/config")
+	if err != nil {
+		log.Fatalf("failed to load kubeConfig path: %v", err)
+	}
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
 		log.Fatalf("failed to load kubeConfig path: %v", err)
@@ -59,7 +65,7 @@ func Start() {
 	//}
 
 	// GRPC Server Init
-	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%s", cfg.GRPCPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -68,6 +74,7 @@ func Start() {
 		//grpc.Creds(creds),
 		grpc.ChainUnaryInterceptor(
 			middlewares.AuthInterceptor,
+			grpcLogrus.UnaryServerInterceptor(logrus.NewEntry(logrus.New()), []grpcLogrus.Option{}...),
 			grpcRecovery.UnaryServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(

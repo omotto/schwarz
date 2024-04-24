@@ -1,3 +1,12 @@
+DOCKER                ?= docker
+COMMIT_ID             ?= $(shell hostname -s)-local
+IMAGE_TAG             ?= v1-${COMMIT_ID}
+
+PRODUCT               ?= $(notdir $(abspath .))
+PARENT                ?= $(notdir $(abspath ..))
+GOPACKAGE             ?= $(shell awk '/^module /{ print $$2 }' < $(GOMOD))
+mainpath              ?= main
+mainpkg               ?= $(PRODUCT)/$(mainpath)
 ROOT_DIR              ?= $(shell git rev-parse --show-toplevel)
 GO                    ?= go
 GO_FLAGS              ?=
@@ -5,7 +14,6 @@ GO_BIN                ?= ./bin/main
 GOTEST_ARGS           ?= -timeout=5m -cover
 GOLANG_CI_ARGS        ?= --allow-parallel-runners --timeout=5m
 BUF                   ?= buf
-mainpath              ?= main
 pkgs                  ?= $(shell $(GO) list ./...)
 
 ALL_PROTOS ?= $(shell find $(ROOT_DIR) \
@@ -87,4 +95,8 @@ fix: format-all-protos format
 
 lint: lint-proto lint-golangci-lint check-format
 
-.PHONY: all generate-rpcs clean run go-mod-download generate-all-rpcs go-dependencies
+docker: compile
+	docker build -t ${PRODUCT}:${IMAGE_TAG} .
+	docker run -p 50052:50052 -p 8602:8602 ${PRODUCT}:${IMAGE_TAG}
+
+.PHONY: all generate-rpcs run go-mod-download generate-all-rpcs go-dependencies

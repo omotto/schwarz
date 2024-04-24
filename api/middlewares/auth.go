@@ -31,5 +31,5 @@ func AuthInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServerIn
 		return nil, status.Error(codes.Unauthenticated, authError)
 	}
 	// TODO: Perform the token validation here.
-	return handler(ctx, req) // go to function.
+	return handler(ctx, req)
 }
