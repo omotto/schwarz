@@ -34,12 +34,11 @@ func NewConfig() (*Config, error) {
 	httpTimeoutRaw, set := os.LookupEnv(envHttpTimeout)
 	if !set {
 		return nil, fmt.Errorf(envHttpTimeout + envNotSet)
-	} else {
-		var err error
-		httpTimeout, err = time.ParseDuration(httpTimeoutRaw)
-		if err != nil {
-			return nil, fmt.Errorf(envHttpTimeout + envNonValid)
-		}
+	}
+	var err error
+	httpTimeout, err = time.ParseDuration(httpTimeoutRaw)
+	if err != nil {
+		return nil, fmt.Errorf(envHttpTimeout + envNonValid)
 	}
 	return &Config{
 		GRPCPort:    grpcPort,

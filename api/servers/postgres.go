@@ -3,16 +3,16 @@ package servers
 import (
 	"context"
 	"schwarz/models"
-	"schwarz/services"
+	"schwarz/services/kubernetes"
 
 	pb "schwarz/api/proto"
 )
 
 type PostgresServer struct {
-	postgresService services.Service
+	postgresService kubernetes.Service
 }
 
-func NewPostgres(postgresService services.Service) pb.PostgresServiceServer {
+func NewPostgres(postgresService kubernetes.Service) pb.PostgresServiceServer {
 	return &PostgresServer{postgresService}
 }
 

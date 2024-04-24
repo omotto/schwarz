@@ -1,8 +1,9 @@
-package services
+package kubernetes
 
 import (
 	"context"
 	"schwarz/models"
+	"schwarz/services/prometheus"
 
 	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,16 +23,19 @@ const (
 
 type Postgres struct {
 	kubeClient *kubernetes.Clientset
+	metrics    *prometheus.Prometheus
 }
 
-func NewPostgres(clientset *kubernetes.Clientset) Service {
+func NewPostgres(clientset *kubernetes.Clientset, metrics *prometheus.Prometheus) Service {
 	return &Postgres{
 		kubeClient: clientset,
+		metrics:    metrics,
 	}
 }
 
 func (s *Postgres) Create(ctx context.Context, request models.CreateRequest) (models.CreateResponse, error) {
 	id := uuid.New().String()
+	_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessTotal, 1, map[string]string{prometheus.LabelID: id, prometheus.LabelOperation: "create"})
 	configMap := setConfigMap(request.DBName, request.UserName, request.UserPass, id)
 	persistentVolume := setPersistentVolume(request.Capacity, []string{request.AccessMode}, id)
 	persistentVolumeClaim := setPersistentVolumeClaim(request.Capacity, []string{request.AccessMode}, id)
@@ -44,6 +48,7 @@ func (s *Postgres) Create(ctx context.Context, request models.CreateRequest) (mo
 	} else if _, err := s.kubeClient.CoreV1().PersistentVolumeClaims(apiv1.NamespaceDefault).Create(ctx, persistentVolumeClaim, metav1.CreateOptions{}); err != nil {
 		return models.CreateResponse{}, err
 	} else if _, err = s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+		_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessFailedTotal, 1, map[string]string{prometheus.LabelID: id, prometheus.LabelOperation: "create"})
 		return models.CreateResponse{}, err
 	} else if _, err := s.kubeClient.CoreV1().Services(apiv1.NamespaceDefault).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		return models.CreateResponse{}, err
@@ -52,10 +57,12 @@ func (s *Postgres) Create(ctx context.Context, request models.CreateRequest) (mo
 }
 
 func (s *Postgres) Delete(ctx context.Context, request models.DeleteRequest) error {
+	_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessTotal, 1, map[string]string{prometheus.LabelID: request.ID, prometheus.LabelOperation: "delete"})
 	deletePolicy := metav1.DeletePropagationForeground
 	if err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Delete(ctx, request.ID, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
+		_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessFailedTotal, 1, map[string]string{prometheus.LabelID: request.ID, prometheus.LabelOperation: "delete"})
 		return err
 	}
 	if err := s.kubeClient.CoreV1().Services(apiv1.NamespaceDefault).Delete(ctx, postgresPrefix+request.ID, metav1.DeleteOptions{}); err != nil {
@@ -74,15 +81,20 @@ func (s *Postgres) Delete(ctx context.Context, request models.DeleteRequest) err
 }
 
 func (s *Postgres) Update(ctx context.Context, request models.UpdateRequest) error {
+	_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessTotal, 1, map[string]string{prometheus.LabelID: request.ID, prometheus.LabelOperation: "update"})
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
 		result, err := s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Get(ctx, request.ID, metav1.GetOptions{})
 		if err != nil {
+			_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessFailedTotal, 1, map[string]string{prometheus.LabelID: request.ID, prometheus.LabelOperation: "read"})
 			return err
 		}
 		result.Spec.Replicas = &request.Replicas
 		_, err = s.kubeClient.AppsV1().Deployments(apiv1.NamespaceDefault).Update(ctx, result, metav1.UpdateOptions{})
+		if err != nil {
+			_ = s.metrics.IncreaseCounterMetric(prometheus.MetricDeploymentAccessFailedTotal, 1, map[string]string{prometheus.LabelID: request.ID, prometheus.LabelOperation: "update"})
+		}
 		return err
 	})
 }

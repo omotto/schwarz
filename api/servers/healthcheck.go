@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"schwarz/api/handlers"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -26,15 +27,15 @@ type HealthcheckServer struct {
 	httpSvr  *http.Server
 }
 
-func NewHealthcheck(host string, port string, timeout time.Duration) HealthcheckServer {
+func NewHealthcheck(host, port string, timeout time.Duration, healthcheckHandlers handlers.Healthcheck) HealthcheckServer {
 	server := HealthcheckServer{
 		httpAddr: fmt.Sprintf("%s:%s", host, port),
 		router:   mux.NewRouter(),
 		timeout:  timeout,
 	}
-	server.router.HandleFunc(defaultReadyProbe, readinessProbe).Methods(http.MethodGet)
-	server.router.HandleFunc(defaultLiveProbe, livenessProbe).Methods(http.MethodGet)
-	server.router.HandleFunc(defaultMetricsPath, metricsHandler).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultReadyProbe, healthcheckHandlers.ReadinessProbe).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultLiveProbe, healthcheckHandlers.LivenessProbe).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultMetricsPath, healthcheckHandlers.MetricsHandler).Methods(http.MethodGet)
 	server.httpSvr = &http.Server{
 		Addr:              server.httpAddr,
 		Handler:           server.router,
@@ -58,16 +59,4 @@ func (s *HealthcheckServer) ShutDown() error {
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), s.timeout)
 	defer cancel()
 	return s.httpSvr.Shutdown(ctxShutDown)
-}
-
-func readinessProbe(writer http.ResponseWriter, _ *http.Request) {
-	writer.WriteHeader(http.StatusOK)
-}
-
-func livenessProbe(writer http.ResponseWriter, _ *http.Request) {
-	writer.WriteHeader(http.StatusOK)
-}
-
-func metricsHandler(writer http.ResponseWriter, request *http.Request) {
-	//promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}).ServeHTTP(writer, request)
 }
