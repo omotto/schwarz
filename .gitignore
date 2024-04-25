@@ -2,7 +2,7 @@
 .idea/
 
 # Project specific
-.DS_Store
+**/.DS_Store
 .go-mod-download.sentinel
 api/proto/*.pb.go
 bin/
