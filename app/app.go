@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"schwarz/api/handlers"
 	"schwarz/api/middlewares"
+	pb "schwarz/api/proto"
 	"schwarz/api/servers"
 	kubernetesService "schwarz/services/kubernetes"
 	prometheusService "schwarz/services/prometheus"
@@ -18,13 +19,12 @@ import (
 	grpcLogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpcPrometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	grpcRecovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/heptiolabs/healthcheck"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	pb "schwarz/api/proto"
 )
 
 func Start() {
@@ -68,9 +68,18 @@ func Start() {
 	// Server Context
 	sCtx := serverContext(context.Background())
 
+	// Handlers
+	metricsHandler := handlers.NewMetrics(registry)
+	health := healthcheck.NewHandler()
+	health.AddReadinessCheck(
+		"kubernetes",
+		func() error {
+			var readyzErr error
+			_, readyzErr = kubeClient.RESTClient().Get().AbsPath("/readyz").DoRaw(context.Background())
+			return readyzErr
+		})
 	// HTTP Server Init
-	healthcheckHandlers := handlers.NewHealthcheck(registry)
-	httpServer := servers.NewHealthcheck("", cfg.HealthPort, cfg.HttpTimeout, healthcheckHandlers)
+	httpServer := servers.NewHealthcheck("", cfg.HealthPort, cfg.HttpTimeout, metricsHandler, health)
 	httpServer.Run()
 
 	// server-side TLS

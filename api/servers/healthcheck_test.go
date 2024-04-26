@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heptiolabs/healthcheck"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -46,7 +47,8 @@ func TestHealthcheck(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.description, func(t *testing.T) {
-			server := NewHealthcheck("", "12345", time.Minute, handlers.NewHealthcheck(&prometheus.Registry{}))
+			health := healthcheck.NewHandler()
+			server := NewHealthcheck("", "12345", time.Minute, handlers.NewMetrics(&prometheus.Registry{}), health)
 			svr := httptest.NewServer(server.router)
 			defer svr.Close()
 

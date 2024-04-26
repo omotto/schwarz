@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/heptiolabs/healthcheck"
 )
 
 const (
@@ -27,15 +28,15 @@ type HealthcheckServer struct {
 	httpSvr  *http.Server
 }
 
-func NewHealthcheck(host, port string, timeout time.Duration, healthcheckHandlers handlers.Healthcheck) HealthcheckServer {
+func NewHealthcheck(host, port string, timeout time.Duration, metrics handlers.Metrics, handler healthcheck.Handler) HealthcheckServer {
 	server := HealthcheckServer{
 		httpAddr: fmt.Sprintf("%s:%s", host, port),
 		router:   mux.NewRouter(),
 		timeout:  timeout,
 	}
-	server.router.HandleFunc(defaultReadyProbe, healthcheckHandlers.ReadinessProbe).Methods(http.MethodGet)
-	server.router.HandleFunc(defaultLiveProbe, healthcheckHandlers.LivenessProbe).Methods(http.MethodGet)
-	server.router.HandleFunc(defaultMetricsPath, healthcheckHandlers.MetricsHandler).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultReadyProbe, handler.ReadyEndpoint).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultLiveProbe, handler.LiveEndpoint).Methods(http.MethodGet)
+	server.router.HandleFunc(defaultMetricsPath, metrics.MetricsEndpoint).Methods(http.MethodGet)
 	server.httpSvr = &http.Server{
 		Addr:              server.httpAddr,
 		Handler:           server.router,

@@ -19,7 +19,7 @@ Create a design diagram (e.g. UML) how your system could interact in a real envi
 Package your service inside a Docker image, so it can be rolled out in a Kubernetes environment.
 
 ## Instructions
-- First of all, it's necessary to set the right *kubeconfig* file as **config** to run locally or **docker_config** to run inside docker container
+- First of all, it's necessary to set the right *kubeconfig* file as **config** to run locally or **docker_config** to run inside docker container in **/config** folder
 - On the other hand is necessary to set the proper environmental variables that are defined inside **.env** file to run it locally
 ```
 set -a
